@@ -17,6 +17,12 @@ void deal_chld(int a)
 		fprintf(stderr,"DONE: the job of pid %d...\n",pid);
 	return;
 }
+void deal_int(int a)
+{
+	printf("hello\n");
+	fflush(0);
+	return;
+}
 
 int main(int argc,char *argv[])
 {
@@ -26,6 +32,7 @@ int main(int argc,char *argv[])
 	s_argc = argc;
 	/* do not deal with SIGCHLD, may cause zombies with & */
 	/*signal(SIGCHLD,deal_chld);*/
+	/*signal(SIGINT,deal_int);*/
 
 	s_tokens = s_tokens_all;
 	int i=0;
@@ -39,7 +46,7 @@ int main(int argc,char *argv[])
 
 		/* shell_read */
 		int it;
-		if((it = shell_read()) == 1){ /*EOF*/
+		if((it = shell_read())==1){ /*EOF*/
 			fprintf(stderr,"Ok, quit the shell\n");
 			break;
 		}

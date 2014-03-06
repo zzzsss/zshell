@@ -33,3 +33,13 @@ void assign_name(char *a,int export)
 	}
 	put_var(name,value,export);
 }
+
+int has_slash(char *t)
+{
+	int l=strlen(t);
+	int i;
+	for(i=0;i<l;i++)
+		if(t[i]=='/')
+			return 1;
+	return 0;
+}

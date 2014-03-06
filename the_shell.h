@@ -83,5 +83,6 @@ extern builtin_handle s_builtin_handle[];
 /* others */
 int is_assign(char*);
 void assign_name(char *,int);
+int has_slash(char *);
 
 #endif

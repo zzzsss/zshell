@@ -21,28 +21,15 @@ int do_cd(int arg_n,char **args,struct sh_redir d)
 	}
 	/* change to arg1 */
 	char *a = args[1];
-	DIR *current = opendir(".");
-	struct dirent *entry;
-	while((entry = readdir(current))!=NULL)
-	{
-		if(strcmp(a,entry->d_name)==0){
-			if(chdir(a)<0){
-				sprintf(buf,"Can't change dir to %s...\n",a);
-				if(d.which[2]!=-1)
-					write(d.which[2],buf,strlen(buf));
-				else
-					write(2,buf,strlen(buf));
-				return 1;
-			}
-			return 0;
-		}
+	if(chdir(a)<0){
+		sprintf(buf,"Can't change dir to %s...\n",a);
+		if(d.which[2]!=-1)
+			write(d.which[2],buf,strlen(buf));
+		else
+			write(2,buf,strlen(buf));
+		return 1;
 	}
-	sprintf(buf,"Can't find dir to %s...\n",a);
-	if(d.which[2]!=-1)
-		write(d.which[2],buf,strlen(buf));
-	else
-		write(2,buf,strlen(buf));
-	return 1;
+	return 0;
 }
 int do_export(int arg_n,char **args,struct sh_redir d)
 {
@@ -58,6 +45,9 @@ int do_export(int arg_n,char **args,struct sh_redir d)
 int do_exit(int arg_n,char **args,struct sh_redir d)
 {
 	write(2,"Ok,exit...\n",11);
+	unsigned char k=0;
+	if(arg_n>1 && ((k=atoi(args[1]))>0))
+		exit(k);
 	exit(0);
 }
 int do_help(int arg_n,char **args,struct sh_redir d)

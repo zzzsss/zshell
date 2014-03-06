@@ -22,7 +22,35 @@ int exec_common(struct the_p_unit* p,struct sh_redir d)
 	args[i]=NULL;
 	int answer=0;
 	int find_it=0;
-	
+
+	/* if there is / in the cmd --- no search */
+	if(has_slash(cmd)){
+		struct stat buf;
+		int k=stat(cmd,&buf);
+		if(k==-1)
+			goto FINAL;
+		else{
+			int pid_here;
+			if((pid_here=fork())==0){
+				int i;
+				for(i=0;i<3;i++)
+					if(d.which[i]>=3){
+						close(i);
+						dup(d.which[i]);
+					}
+				for(i=0;i<p->assign_num;i++)
+					assign_name(s_tokens[p->assign_index[i]].text,1);
+				execv(cmd,args);
+				exit(1);/*error here*/
+			}
+			else{
+				waitpid(pid_here,&answer,0);
+				find_it=1;
+				goto FINAL;
+			}
+		}
+	}
+
 	/* search for builtins(ignore assigns) */
 	for(i=0;i<S_BUILTIN_NUM;i++)
 	{
@@ -87,9 +115,9 @@ int exec_common(struct the_p_unit* p,struct sh_redir d)
 			}
 			else{
 				waitpid(pid_here,&answer,0);
-				free(path_temp);
 			}
 		}
+		free(path_temp);
 	}
 
 FINAL:
