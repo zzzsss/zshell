@@ -65,10 +65,75 @@ int do_set(int arg_n,char **args,struct sh_redir d)
 	return 0;
 }
 
+/* job control */
+int do_jobs(int arg_n,char **args,struct sh_redir d)
+{
+	int pid;
+	if((pid=fork())==0){
+		int i=0;
+		for(i=0;i<3;i++)
+			if(d.which[i]>=3){
+				close(i);
+				dup(d.which[i]);
+			}
+		exit(jc_jobs());
+	}
+	else{
+		int answer=0;
+		waitpid(pid,&answer,0);
+		return answer;
+	}
+}
+
+/* fg,bg just take the first arg... */
+int do_fgbg(int arg_n,char **args,struct sh_redir d)
+{
+	if(arg_n<=1){
+		fprintf(stderr,"BGFG: need argu...\n");
+		return 1;
+	}
+	int i=atoi(&args[1][1]);
+	if(i>0){
+		if(strcmp(args[0],"fg")==0)
+			return jc_fgbg(i,JC_FORE_RUN);
+		else
+			return jc_fgbg(i,JC_BACK_RUN);
+	}
+	fprintf(stderr,"BGFG: bad argu %s...\n",args[1]);
+	return 1;
+}
+/* format: kill -signum %[N]/[N] */
+int do_kill(int arg_n,char ** args,struct sh_redir d)
+{
+	int sig,j_num;
+	if(arg_n <= 2){ 
+		fprintf(stderr,"BGFG: bad argu...\n");
+		return 1;
+	}
+	if(args[1][0]!='-' || (sig=atoi(&args[1][1]))<=0){
+		fprintf(stderr,"BGFG: bad signum...\n");
+		return 1;
+	}
+	if(args[2][0]=='%'){
+		if((j_num=atoi(&args[2][1]))<=0){
+			fprintf(stderr,"BGFG: bad %% format...\n");
+			return 1;
+		}
+		return jc_kill(j_num,sig);
+	}
+	else{
+		if((j_num=atoi(args[2]))<=0){
+			fprintf(stderr,"BGFG: argument not pid...\n");
+			return 1;
+		}
+		return kill(j_num,sig);
+	}
+}
+
 const char *s_builtins[]=
-{"cd","export","exit","help","set"};
+{"cd","export","exit","help","set","jobs","fg","bg","kill"};
 
 builtin_handle s_builtin_handle[]=
-{do_cd,do_export,do_exit,do_help,do_set};
+{do_cd,do_export,do_exit,do_help,do_set,do_jobs,do_fgbg,do_fgbg,do_kill};
 
 

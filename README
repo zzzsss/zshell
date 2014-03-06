@@ -1,0 +1,16 @@
+shell v1.2 beta
+<add job control on the shell;but failed>
+
+1.the fix
+	<1>. add job control
+	<2>. shell builtin jobs,fg,bg,kill
+
+2.info
+	version:v1.2 beta
+	author:zzs
+	date:13.6.12
+
+3.others
+	this modifying failed cause not handle terminal things 
+	and the job control is really poorly written...
+	this will be the end of v1,may be next time rewrite the whole...

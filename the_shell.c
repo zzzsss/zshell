@@ -6,22 +6,30 @@ int s_token_num=0;
 int s_argc;
 char **s_argv;
 int s_return_value=0;
+sigjmp_buf the_start_point;
 
 void shell_token_clear();
+extern struct job_t current_f_job;
 
 void deal_chld(int a)
 {
 	int answer;
-	int pid=waitpid(-1,&answer,0);
-	if(pid!=-1)
-		fprintf(stderr,"DONE: the job of pid %d...\n",pid);
+	jc_chld();
 	return;
 }
 void deal_int(int a)
 {
-	printf("hello\n");
-	fflush(0);
-	return;
+	jc_kill_cur(SIGINT);
+	fprintf(stderr,"\n");
+	if(current_f_job.r_flag==JC_NONE)
+		siglongjmp(the_start_point,1);
+}
+void deal_stop(int a)
+{
+	jc_stop_cur();
+	fprintf(stderr,"\n");
+	if(current_f_job.r_flag==JC_NONE)
+		siglongjmp(the_start_point,1);
 }
 
 int main(int argc,char *argv[])
@@ -30,17 +38,39 @@ int main(int argc,char *argv[])
 	init_var_binding();
 	s_argv = argv;
 	s_argc = argc;
-	/* do not deal with SIGCHLD, may cause zombies with & */
-	/*signal(SIGCHLD,deal_chld);*/
-	/*signal(SIGINT,deal_int);*/
+	/* deal with signal */
+	struct sigaction sa1,sa2;
+	sa1.sa_flags=0;
+	sa1.sa_flags |= SA_RESTART;
+	sigemptyset(&sa1.sa_mask);
 
+	sa1.sa_handler=deal_int;
+	sigaction(SIGINT,&sa1,&sa2);
+	sa1.sa_handler=deal_stop;
+	sigaction(SIGTSTP,&sa1,&sa2);
+	sa1.sa_handler=deal_chld;
+	sigaction(SIGCHLD,&sa1,&sa2);
+
+	/*tokens initial*/
 	s_tokens = s_tokens_all;
 	int i=0;
 	for(i=0;i<TOKEN_MAX_NUM;i++)
 		s_tokens[i].text = NULL;
 
+	current_f_job.cmd=malloc(MAX_LINE_LENGTH);
+	current_f_job.cmd[0]='\0';
+
 	/* currently no options supporting */
 	while(1){
+		/* the jmp_buf */
+		sigsetjmp(the_start_point,1);
+		
+		/* clear */
+		shell_token_clear();
+		if(s_parse_top)
+			p_unit_free_all(&s_parse_top);
+	
+		jc_clear_done();
 		/* print prompt */
 		shell_prompt(1);
 
@@ -73,9 +103,6 @@ int main(int argc,char *argv[])
 			}
 			
 		}
-		shell_token_clear();
-		if(s_parse_top)
-			p_unit_free_all(&s_parse_top);
 	}
 
 	/* out here */

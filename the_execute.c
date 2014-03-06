@@ -1,12 +1,17 @@
 #include "the_shell.h"
 
-int exec_common(struct the_p_unit* p,struct sh_redir d)
+int exec_common(struct the_p_unit* p,struct sh_redir d,int flag)
 {
 	/* the final unit of execution...
 	 * if no cmd,just return 0
 	 */
 	if(p->text_num==0){
 		int i=0;
+		char cmd_tmp[MAX_LINE_LENGTH];
+		cmd_tmp[0]='\0';
+		p_unit_print_cur(p,0,cmd_tmp);
+		jc_addjob(cmd_tmp,JC_FORE_RUN,-1,0);
+
 		for(i=0;i<p->assign_num;i++)
 			assign_name(s_tokens[p->assign_index[i]].text,0);
 		return 0;
@@ -32,6 +37,13 @@ int exec_common(struct the_p_unit* p,struct sh_redir d)
 		else{
 			int pid_here;
 			if((pid_here=fork())==0){
+
+				//printf("fork here\n");
+
+				if(flag & F_TOP){
+					setpgid(0,0);
+				}
+
 				int i;
 				for(i=0;i<3;i++)
 					if(d.which[i]>=3){
@@ -41,10 +53,23 @@ int exec_common(struct the_p_unit* p,struct sh_redir d)
 				for(i=0;i<p->assign_num;i++)
 					assign_name(s_tokens[p->assign_index[i]].text,1);
 				execv(cmd,args);
+
+				//printf("error here\n");
+
 				exit(1);/*error here*/
 			}
 			else{
-				waitpid(pid_here,&answer,0);
+				//tcsetpgrp(0,pid_here); 	//not using this function
+				char cmd_tmp[MAX_LINE_LENGTH];
+				cmd_tmp[0]='\0';
+				p_unit_print_cur(p,0,cmd_tmp);
+				if((flag & F_BG) && (flag & F_TOP))
+					jc_addjob(cmd_tmp,JC_BACK_RUN,pid_here,0);
+				else if(flag & F_TOP)
+					jc_addjob(cmd_tmp,JC_FORE_RUN,pid_here,0);
+
+				waitpid(pid_here,&answer,WUNTRACED);
+
 				find_it=1;
 				goto FINAL;
 			}
@@ -55,6 +80,13 @@ int exec_common(struct the_p_unit* p,struct sh_redir d)
 	for(i=0;i<S_BUILTIN_NUM;i++)
 	{
 		if(strcmp(cmd,s_builtins[i])==0){
+			char cmd_tmp[MAX_LINE_LENGTH];
+			cmd_tmp[0]='\0';
+			p_unit_print_cur(p,0,cmd_tmp);
+			if((flag & F_BG) && (flag & F_TOP))
+				jc_addjob(cmd_tmp,JC_BACK_RUN,-1,0);
+			else if(flag & F_TOP)
+				jc_addjob(cmd_tmp,JC_FORE_RUN,-1,0);
 			find_it=1;
 			answer=(s_builtin_handle[i])(arg_n,args,d);
 			goto FINAL;
@@ -102,6 +134,11 @@ int exec_common(struct the_p_unit* p,struct sh_redir d)
 		if(find_it!=0){
 			int pid_here;
 			if((pid_here=fork())==0){
+
+				if(flag & F_TOP){
+					setpgid(0,0);
+				}
+
 				int i;
 				for(i=0;i<3;i++)
 					if(d.which[i]>=3){
@@ -114,7 +151,15 @@ int exec_common(struct the_p_unit* p,struct sh_redir d)
 				exit(1);/*error here*/
 			}
 			else{
-				waitpid(pid_here,&answer,0);
+				char cmd_tmp[MAX_LINE_LENGTH];
+				cmd_tmp[0]='\0';
+				p_unit_print_cur(p,0,cmd_tmp);
+				if((flag & F_BG) && (flag & F_TOP))
+					jc_addjob(cmd_tmp,JC_BACK_RUN,pid_here,0);
+				else if(flag & F_TOP)
+					jc_addjob(cmd_tmp,JC_FORE_RUN,pid_here,0);
+				waitpid(pid_here,&answer,WUNTRACED);
+
 			}
 		}
 		free(path_temp);
@@ -129,24 +174,31 @@ FINAL:
 			write(d.which[2],here_buf,strlen(here_buf));
 		else
 			fprintf(stderr,here_buf);
-		return 127;
+		return 127<<8;
 	}
 	return answer;
 }
 
-int exec_pipe(struct the_p_unit *p,struct sh_redir d)
+int exec_pipe(struct the_p_unit *p,struct sh_redir d,int flag)
 {
 	/* just return last pipe's result */
 	int pids[PIPE_PER_MAX];
 	int p_num=0;
 	int pipe_fd[2]={-1,-1};
 	int pipe_before=-1;
+	int saved_gp=0;
 	p=p->down;
 	while(1){
 		int t=p->link_next_type;
 		pipe(pipe_fd);
 		int the_pid;
 		if((the_pid=fork())==0){
+			if(flag & F_TOP){
+				if(p_num==0)
+					setpgid(0,0);
+				else
+					setpgid(0,saved_gp);
+			}
 			close(pipe_fd[0]);
 			if(pipe_before!=-1)
 				d.which[0]=pipe_before;
@@ -157,10 +209,20 @@ int exec_pipe(struct the_p_unit *p,struct sh_redir d)
 			}
 			else
 				close(pipe_fd[1]);
-			int answer=exec_one(p,d);
+			int answer=exec_one(p,d,0);
 			exit(answer);
 		}
 		else{
+			if(p_num==0){
+				saved_gp=the_pid;
+				char cmd_tmp[MAX_LINE_LENGTH];
+				cmd_tmp[0]='\0';
+				p_unit_print_cur(p->up,0,cmd_tmp);
+				if((flag & F_BG) && (flag & F_TOP))
+					jc_addjob(cmd_tmp,JC_BACK_RUN,saved_gp,0);
+				else if(flag & F_TOP)
+					jc_addjob(cmd_tmp,JC_FORE_RUN,saved_gp,0);
+			}
 			pids[p_num++]=the_pid;
 			close(pipe_fd[1]);
 			if(pipe_before!=-1)
@@ -178,27 +240,38 @@ int exec_pipe(struct the_p_unit *p,struct sh_redir d)
 	int i=0;
 	int final_answer;
 	for(i=0;i<p_num;i++)
-		waitpid(pids[i],&final_answer,0);
+		waitpid(pids[i],&final_answer,WUNTRACED);
 	return final_answer;
 }
-int exec_b1(struct the_p_unit *p,struct sh_redir d)
+int exec_b1(struct the_p_unit *p,struct sh_redir d,int flag)
 {
-	return exec_top(p->down,d);
+	return exec_top(p->down,d,flag);
 }
-int exec_b2(struct the_p_unit *p,struct sh_redir d)
+int exec_b2(struct the_p_unit *p,struct sh_redir d,int flag)
 {
 	int pid;
 	if((pid=fork())==0){
-		int answer=exec_top(p->down,d);
+		if(flag & F_TOP){
+			setpgid(0,0);
+		}
+		int answer=exec_top(p->down,d,0);
 		exit(answer);
 	}
 	else{
+		char cmd_tmp[MAX_LINE_LENGTH];
+		cmd_tmp[0]='\0';
+		p_unit_print_cur(p,0,cmd_tmp);
+		if((flag & F_BG) && (flag & F_TOP))
+			jc_addjob(cmd_tmp,JC_BACK_RUN,pid,0);
+		else if(flag & F_TOP)
+			jc_addjob(cmd_tmp,JC_FORE_RUN,pid,0);
+
 		int answer=0;
-		waitpid(pid,&answer,0);
+		waitpid(pid,&answer,WUNTRACED);
 		return answer;
 	}
 }
-int exec_one(struct the_p_unit* p,struct sh_redir d)
+int exec_one(struct the_p_unit* p,struct sh_redir d,int flag)
 {
 	int i=0;
 	int fd_open[2] = {-1,-1};
@@ -239,58 +312,68 @@ int exec_one(struct the_p_unit* p,struct sh_redir d)
 	if(fd_open[1] != -1)
 		d.which[1] = fd_open[1];
 
+
 	int answer=0;
 	if(p->cmd == 0)
-		answer=exec_common(p,d);
+		answer=exec_common(p,d,flag);
 	else if(p->cmd == 'p')
-		answer=exec_pipe(p,d);
+		answer=exec_pipe(p,d,flag);
 	else if(p->cmd == '{')
-		answer=exec_b1(p,d);
+		answer=exec_b1(p,d,flag);
 	else if(p->cmd == '(')
-		answer=exec_b2(p,d);
+		answer=exec_b2(p,d,flag);
 
 	close(fd_open[0]);
 	close(fd_open[1]);
+
+	if(!(flag & F_BG) && (flag & F_TOP))
+		jc_clear_fore_job(p); 
 	return answer;
 }
 
-int exec_top(struct the_p_unit* p,struct sh_redir d)
+int exec_top(struct the_p_unit* p,struct sh_redir d,int flag)
 {
 	/* first exec this one */
 	int answer=0;
 	if(p->link_next_type==';' || p->link_next_type=='E'){
-		answer=exec_one(p,d);
+		answer=exec_one(p,d,flag);
 		s_return_value=answer;
 		if(p->next != NULL)
-			return exec_top(p->next,d);
+			return exec_top(p->next,d,flag);
 	}
 	else if(p->link_next_type=='&'){
 		/* not waiting fot it */
-		if(fork()==0){
-			answer=exec_one(p,d);
+		int pid_bg;
+		if((pid_bg=fork())==0){
+			setpgid(0,0);
+			answer=exec_one(p,d,0);
 			exit(answer);
 		}
 		else{
+			char cmd_tmp[MAX_LINE_LENGTH];
+			cmd_tmp[0]='\0';
+			p_unit_print_cur(p,0,cmd_tmp);
+			jc_addjob(cmd_tmp,JC_BACK_RUN,pid_bg,0);
 			s_return_value=0;
 			if(p->next != NULL)
-				return exec_top(p->next,d);
+				return exec_top(p->next,d,flag);
 		}
 	}
 	else if(p->link_next_type=='a'){
-		answer=exec_one(p,d);
+		answer=exec_one(p,d,flag);
 		s_return_value=answer;
 		if(answer!=0)
 			/* do not need check,cause must have some when reading*/
 			p=p->next;	
 		if(p->next != NULL)
-			return exec_top(p->next,d);
+			return exec_top(p->next,d,flag);
 	}
 	else if(p->link_next_type=='o'){
-		answer=exec_one(p,d);
+		answer=exec_one(p,d,flag);
 		if(answer==0)
 			p=p->next;
 		if(p->next != NULL)
-			return exec_top(p->next,d);
+			return exec_top(p->next,d,flag);
 	}
 	else{
 		/* error */
@@ -346,5 +429,5 @@ void shell_exec()
 	d.which[1]=-1;
 	d.which[2]=-1;
 	if(s_parse_top->down != NULL)
-		exec_top(s_parse_top->down,d);
+		exec_top(s_parse_top->down,d,F_TOP);
 }

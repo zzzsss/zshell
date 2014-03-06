@@ -1,5 +1,7 @@
 #ifndef _THE_P_UNIT
 #define _THE_P_UNIT
+#include <stdlib.h>
+#include <stdio.h>
 
 #define MAX_INDEX 10
 #define MAX_ARGU 20
@@ -31,6 +33,7 @@ typedef void (*map_f) (struct the_p_unit*);
 int p_unit_init(struct the_p_unit**);
 void p_unit_free_all(struct the_p_unit**);
 void p_unit_map_all(struct the_p_unit*,map_f);
+void p_unit_print_cur(struct the_p_unit* a,int b,char* dest);
 
 #endif
 

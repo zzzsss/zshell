@@ -1,4 +1,4 @@
-#include "the_p_unit.h"
+#include "the_shell.h"
 
 int p_unit_init(struct the_p_unit** a)
 {
@@ -43,3 +43,42 @@ void p_unit_map_all(struct the_p_unit *a,map_f f)
 		p_unit_map_all(a->next,f);
 	}
 }
+
+
+void p_unit_print_cur(struct the_p_unit *a,int cont,char *dest)
+{
+	int i;
+	char tmp[MAX_LINE_LENGTH];
+	if(a==0)
+		return;
+	if(a->cmd==0)
+		for(i=0;i<a->text_num;i++){
+			sprintf(tmp,"%s ",s_tokens[a->text_index[i]].text);
+			STR_APP(dest,tmp);
+		}
+	else if(a->cmd == 'p')
+		p_unit_print_cur(a->down,1,dest);
+	else if(a->cmd == '{'){
+		sprintf(tmp,"{ ");
+		STR_APP(dest,tmp);
+		p_unit_print_cur(a->down,1,dest);
+		sprintf(tmp,"{ ");
+		STR_APP(dest,tmp);
+	}
+	else if(a->cmd == '('){
+		sprintf(tmp,"( ");
+		STR_APP(dest,tmp);
+		p_unit_print_cur(a->down,1,dest);
+		sprintf(tmp,"( ");
+		STR_APP(dest,tmp);
+	}
+
+	if(cont!=0){
+		sprintf(tmp," %c ",a->link_next_type);
+		p_unit_print_cur(a->next,cont,dest);
+		STR_APP(dest,tmp);
+	}
+	return;
+}
+
+

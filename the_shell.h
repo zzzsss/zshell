@@ -10,7 +10,12 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <string.h>
+#include <assert.h>
+#include <setjmp.h>
 
+#define MAX_LINE_LENGTH 100
+#define STR_APP(origin,append) \
+	strncat(origin,append,(MAX_LINE_LENGTH-strlen(origin)))
 
 struct sh_token{
 	char * text;
@@ -26,7 +31,7 @@ extern int s_argc;
 extern int s_return_value;
 
 /* debug */
-/* #define SHELL_DEBUG */
+/* #define SHELL_DEBUG  */
 void shell_debug_read_print();
 void shell_debug_parse_print();
 
@@ -71,7 +76,7 @@ struct sh_redir{
 void shell_exec();
 
 /* build_in */
-#define S_BUILTIN_NUM 5
+#define S_BUILTIN_NUM 9
 typedef int (*builtin_handle) (int,char**,struct sh_redir);
 extern const char *s_builtins[];
 extern builtin_handle s_builtin_handle[];
@@ -84,5 +89,34 @@ extern builtin_handle s_builtin_handle[];
 int is_assign(char*);
 void assign_name(char *,int);
 int has_slash(char *);
+
+/* for job control */
+#define MAX_JOB 100
+
+#define F_BG 1
+#define F_TOP 2
+
+#define JC_NONE 0
+#define JC_BACK_RUN 1
+#define JC_FORE_RUN 2
+#define JC_STOP 3
+#define JC_DONE 4
+
+struct job_t{
+	struct the_p_unit *p;
+	int r_flag;
+	int id;
+	char *cmd;
+};
+void jc_addjob(char *,int,int,int);
+void jc_clear_fore_job();
+int jc_jobs();
+int jc_fgbg(int,int);
+int jc_kill(int,int);
+void jc_stop_cur();
+void jc_kill_cur(int);
+void jc_print_job(struct job_t *);
+void jc_chld();
+void jc_clear_done();
 
 #endif
