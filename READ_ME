@@ -1,0 +1,24 @@
+shell v1.0
+<first finish on the shell>
+
+1.Description for the shell:
+	1.1 six kinds of sepeator
+		; & || && | |&
+	1.2 redirection of 2 types
+		< >
+	1.3 just five builtins
+		cd export : may be the two useful builtins
+	1.4 support var assignment
+		using local variable struct(and connect with env)
+	1.5 expand
+		only support variable expasion($ ${} $? $#)
+
+2.Bugs
+	many many many ...
+	2.1 cause defunct process using &
+	2.2 problem with continued $$$$$
+	many others...
+
+3.Info
+	Author: zzs
+	Finish date: 2013.4.30
