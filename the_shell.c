@@ -50,6 +50,9 @@ int main(int argc,char *argv[])
 	sigaction(SIGTSTP,&sa1,&sa2);
 	sa1.sa_handler=deal_chld;
 	sigaction(SIGCHLD,&sa1,&sa2);
+	sa1.sa_handler=SIG_IGN;
+        sigaction(SIGTTOU,&sa1,&sa2);
+
 
 	/*tokens initial*/
 	s_tokens = s_tokens_all;
