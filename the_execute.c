@@ -60,6 +60,7 @@ int exec_common(struct the_p_unit* p,struct sh_redir d,int flag)
 			}
 			else{
 				//tcsetpgrp(0,pid_here); 	//not using this function
+				tcsetpgrp(0,pid_here);
 				char cmd_tmp[MAX_LINE_LENGTH];
 				cmd_tmp[0]='\0';
 				p_unit_print_cur(p,0,cmd_tmp);
@@ -69,6 +70,7 @@ int exec_common(struct the_p_unit* p,struct sh_redir d,int flag)
 					jc_addjob(cmd_tmp,JC_FORE_RUN,pid_here,0);
 
 				waitpid(pid_here,&answer,WUNTRACED);
+				tcsetpgrp(0,getpgrp());
 
 				find_it=1;
 				goto FINAL;
@@ -151,6 +153,7 @@ int exec_common(struct the_p_unit* p,struct sh_redir d,int flag)
 				exit(1);/*error here*/
 			}
 			else{
+				tcsetpgrp(0,pid_here);
 				char cmd_tmp[MAX_LINE_LENGTH];
 				cmd_tmp[0]='\0';
 				p_unit_print_cur(p,0,cmd_tmp);
@@ -159,7 +162,7 @@ int exec_common(struct the_p_unit* p,struct sh_redir d,int flag)
 				else if(flag & F_TOP)
 					jc_addjob(cmd_tmp,JC_FORE_RUN,pid_here,0);
 				waitpid(pid_here,&answer,WUNTRACED);
-
+				tcsetpgrp(0,getpgrp());
 			}
 		}
 		free(path_temp);
